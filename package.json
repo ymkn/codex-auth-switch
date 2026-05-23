@@ -1,0 +1,17 @@
+{
+  "name": "codex-auth-switch",
+  "version": "0.1.0",
+  "description": "Switch saved OpenCode Codex OAuth auth profiles by copying auth files before starting a task.",
+  "type": "module",
+  "bin": {
+    "codex-auth-switch": "./bin/codex-auth-switch.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node ./bin/codex-auth-switch.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "license": "MIT"
+}
