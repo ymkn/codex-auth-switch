@@ -134,6 +134,30 @@ function safeCopyFile(source, destination) {
   } catch {}
 }
 
+function syncCurrentProfile(paths, authPath, nextProfileName) {
+  if (!existsSync(paths.currentFile) || !existsSync(authPath)) return null;
+
+  const current = readJson(paths.currentFile);
+  if (!current?.name || current.name === nextProfileName) return null;
+  validateProfileName(current.name);
+
+  const currentAuthPath = current.authPath ? path.resolve(expandHome(current.authPath)) : null;
+  if (currentAuthPath && currentAuthPath !== authPath) return null;
+
+  const currentProfileDir = path.join(paths.profilesDir, current.name);
+  validateProfile(currentProfileDir);
+
+  safeCopyFile(authPath, path.join(currentProfileDir, "auth.json"));
+  writeJson(path.join(currentProfileDir, "metadata.json"), {
+    ...readJson(path.join(currentProfileDir, "metadata.json")),
+    syncedAt: new Date().toISOString(),
+    syncedFromAuthPath: authPath,
+    syncedBeforeUsingProfile: nextProfileName,
+  });
+
+  return { name: current.name, profileDir: currentProfileDir };
+}
+
 function storePaths(options) {
   const storeDir = path.resolve(expandHome(options.storeDir || process.env.CODEX_AUTH_SWITCH_STORE_DIR || defaultStoreDir()));
   return {
@@ -167,6 +191,7 @@ export function useProfile(name, options = {}) {
   const paths = storePaths(options);
   const profileDir = path.join(paths.profilesDir, name);
   validateProfile(profileDir);
+  const syncedProfile = syncCurrentProfile(paths, authPath, name);
 
   let backupDir = null;
   if (existsSync(authPath)) {
@@ -193,7 +218,7 @@ export function useProfile(name, options = {}) {
     profileDir,
     backupDir,
   });
-  return { name, authPath, profileDir, backupDir };
+  return { name, authPath, profileDir, backupDir, syncedProfile };
 }
 
 export function listProfiles(options = {}) {
@@ -261,6 +286,7 @@ export function main(argv = process.argv.slice(2)) {
     case "use": {
       if (!name) throw new Error("Missing profile name.");
       const result = useProfile(name, args);
+      if (result.syncedProfile) console.log(`Synced current profile '${result.syncedProfile.name}' before switching.`);
       console.log(`Using profile '${result.name}'.`);
       if (result.backupDir) console.log(`Previous auth was backed up: ${result.backupDir}`);
       return 0;

@@ -40,6 +40,28 @@ test("save, use, list, current", () => {
   }
 });
 
+test("use syncs refreshed current profile before switching", () => {
+  const ctx = fixture();
+  try {
+    saveProfile("plus1", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+    writeFileSync(ctx.authPath, JSON.stringify({ openai: { type: "oauth", refresh: "secret-two" } }));
+    saveProfile("plus2", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+
+    useProfile("plus1", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+    writeFileSync(ctx.authPath, JSON.stringify({ openai: { type: "oauth", refresh: "secret-one-rotated" } }));
+
+    const result = useProfile("plus2", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+    assert.equal(result.syncedProfile.name, "plus1");
+
+    useProfile("plus1", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+    assert.deepEqual(JSON.parse(readFileSync(ctx.authPath, "utf8")), {
+      openai: { type: "oauth", refresh: "secret-one-rotated" },
+    });
+  } finally {
+    rmSync(ctx.root, { recursive: true, force: true });
+  }
+});
+
 test("rejects unsafe profile names", () => {
   const ctx = fixture();
   try {
