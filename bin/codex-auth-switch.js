@@ -10,6 +10,7 @@ import {
   readdirSync,
   renameSync,
   realpathSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
@@ -94,11 +95,6 @@ function readJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-function timestamp(date = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-}
-
 function validateProfileName(name) {
   if (!PROFILE_RE.test(name) || name === "." || name === "..") {
     throw new Error("Invalid profile name. Use 1-64 chars: A-Z a-z 0-9 . _ - and start with an alphanumeric char.");
@@ -168,6 +164,15 @@ function storePaths(options) {
   };
 }
 
+function pruneBackups(backupsDir, keepEntry) {
+  if (!existsSync(backupsDir)) return;
+  const keepName = path.basename(keepEntry);
+  for (const entry of readdirSync(backupsDir)) {
+    if (entry === keepName) continue;
+    rmSync(path.join(backupsDir, entry), { recursive: true, force: true });
+  }
+}
+
 export function saveProfile(name, options = {}) {
   validateProfileName(name);
   const authPath = resolveAuthPath(options.authPath);
@@ -196,9 +201,8 @@ export function useProfile(name, options = {}) {
   let backupDir = null;
   if (existsSync(authPath)) {
     validateAuthSource(authPath);
-    backupDir = path.join(paths.backupsDir, timestamp());
-    let suffix = 1;
-    while (existsSync(backupDir)) backupDir = path.join(paths.backupsDir, `${timestamp()}-${suffix++}`);
+    backupDir = path.join(paths.backupsDir, "last");
+    pruneBackups(paths.backupsDir, backupDir);
     ensureDir(backupDir);
     safeCopyFile(authPath, path.join(backupDir, "auth.json"));
     writeJson(path.join(backupDir, "metadata.json"), {

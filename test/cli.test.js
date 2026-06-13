@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -76,6 +76,30 @@ test("rejects invalid json auth file", () => {
   try {
     writeFileSync(ctx.authPath, "not-json");
     assert.throws(() => saveProfile("plus1", { authPath: ctx.authPath, storeDir: ctx.storeDir }), /Unexpected token/);
+  } finally {
+    rmSync(ctx.root, { recursive: true, force: true });
+  }
+});
+
+test("use keeps only the latest backup", () => {
+  const ctx = fixture();
+  try {
+    saveProfile("plus1", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+    saveProfile("plus2", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+
+    const backupsDir = path.join(ctx.storeDir, "backups");
+    mkdirSync(path.join(backupsDir, "20240101-000000"), { recursive: true });
+    mkdirSync(path.join(backupsDir, "20240102-000000"), { recursive: true });
+
+    useProfile("plus1", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+    assert.deepEqual(readdirSync(backupsDir), ["last"]);
+
+    writeFileSync(ctx.authPath, JSON.stringify({ openai: { type: "oauth", refresh: "intermediate" } }));
+    useProfile("plus2", { authPath: ctx.authPath, storeDir: ctx.storeDir });
+
+    assert.deepEqual(readdirSync(backupsDir), ["last"]);
+    const backupAuth = JSON.parse(readFileSync(path.join(backupsDir, "last", "auth.json"), "utf8"));
+    assert.deepEqual(backupAuth, { openai: { type: "oauth", refresh: "intermediate" } });
   } finally {
     rmSync(ctx.root, { recursive: true, force: true });
   }

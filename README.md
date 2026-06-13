@@ -40,7 +40,7 @@ CODEX_AUTH_SWITCH_AUTH_PATH=~/.local/share/opencode/auth.json codex-auth-switch 
   profiles/<name>/auth.json
   profiles/<name>/metadata.json
   current.json
-  backups/<timestamp>/auth.json
+  backups/last/auth.json
 ```
 
 Windows では `APPDATA` 配下を優先します。`--store-dir` または `CODEX_AUTH_SWITCH_STORE_DIR` で変更できます。
@@ -65,7 +65,7 @@ Windows では `APPDATA` 配下を優先します。`--store-dir` または `COD
 - profile 名は英数字・`.`・`_`・`-` のみに制限します。
 - JSON として parse できない auth ファイルは保存・適用しません。
 - `use` は切替前に、現在の auth を最後に適用した profile へ同期します。
-- `use` 前に現在の auth を `backups/` にコピーします。
+- `use` 前に現在の auth を `backups/last/` にコピーします。古い世代は自動的に削除され、直近1世代のみ残ります。
 - ディレクトリは `0700`、ファイルは `0600` を試行します（Windows では OS 依存）。
 
 ## 注意
